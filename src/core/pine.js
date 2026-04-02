@@ -260,7 +260,16 @@ export async function getSource() {
     throw new Error('Monaco editor found but getValue() returned null.');
   }
 
-  return { success: true, source, line_count: source.split('\n').length, char_count: source.length };
+  const MAX_SOURCE_CHARS = 150_000;  // ~150 KB hard cap
+  let returnSource = source;
+  let truncated = false;
+  if (source.length > MAX_SOURCE_CHARS) {
+    returnSource = source.slice(0, MAX_SOURCE_CHARS);
+    truncated = true;
+  }
+  const result = { success: true, source: returnSource, line_count: source.split('\n').length, char_count: source.length };
+  if (truncated) result._capped = { original_chars: source.length, returned_chars: MAX_SOURCE_CHARS, note: 'Source truncated. Consider reading specific sections.' };
+  return result;
 }
 
 export async function setSource({ source }) {
@@ -423,7 +432,13 @@ export async function getConsole() {
     })()
   `);
 
-  return { success: true, entries: entries || [], entry_count: entries?.length || 0 };
+  const MAX_CONSOLE_ENTRIES = 200;
+  let items = entries || [];
+  const total = items.length;
+  if (items.length > MAX_CONSOLE_ENTRIES) items = items.slice(-MAX_CONSOLE_ENTRIES);
+  const result = { success: true, entries: items, entry_count: items.length };
+  if (total > MAX_CONSOLE_ENTRIES) result._capped = { original: total, returned: MAX_CONSOLE_ENTRIES, note: 'Oldest entries dropped. Most recent entries kept.' };
+  return result;
 }
 
 export async function smartCompile() {
