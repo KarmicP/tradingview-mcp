@@ -1,7 +1,7 @@
 /**
  * Core replay mode logic.
  */
-import { evaluate, getReplayApi } from '../connection.js';
+import { evaluate, getReplayApi, safeString } from '../connection.js';
 
 function wv(path) {
   return `(function(){ var v = ${path}; return (v && typeof v === 'object' && typeof v.value === 'function') ? v.value() : v; })()`;
@@ -15,7 +15,7 @@ export async function start({ date } = {}) {
   await evaluate(`${rp}.showReplayToolbar()`);
   await new Promise(r => setTimeout(r, 500));
 
-  if (date) await evaluate(`${rp}.selectDate(new Date('${date}'))`);
+  if (date) await evaluate(`${rp}.selectDate(new Date(${safeString(date)}))`);
   else await evaluate(`${rp}.selectFirstAvailableDate()`);
   await new Promise(r => setTimeout(r, 1000));
 
