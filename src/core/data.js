@@ -5,6 +5,10 @@ import { evaluate, evaluateAsync, KNOWN_PATHS } from '../connection.js';
 
 const MAX_OHLCV_BARS = 500;
 const MAX_TRADES = 20;
+const MAX_LINES_VERBOSE = 200;
+const MAX_BOXES_VERBOSE = 200;
+const MAX_TABLE_ROWS = 100;
+const MAX_STUDIES = 50;
 const CHART_API = KNOWN_PATHS.chartApi;
 const BARS_PATH = KNOWN_PATHS.mainSeriesBars;
 
@@ -354,7 +358,12 @@ export async function getStudyValues() {
       return results;
     })()
   `);
-  return { success: true, study_count: data?.length || 0, studies: data || [] };
+  let studies = data || [];
+  const total = studies.length;
+  if (studies.length > MAX_STUDIES) studies = studies.slice(0, MAX_STUDIES);
+  const result = { success: true, study_count: studies.length, studies };
+  if (total > MAX_STUDIES) result._capped = { original: total, returned: MAX_STUDIES, note: 'Use study_filter to target specific indicators.' };
+  return result;
 }
 
 export async function getPineLines({ study_filter, verbose } = {}) {
@@ -375,7 +384,11 @@ export async function getPineLines({ study_filter, verbose } = {}) {
     }
     hLevels.sort((a, b) => b - a);
     const result = { name: s.name, total_lines: s.count, horizontal_levels: hLevels };
-    if (verbose) result.all_lines = allLines;
+    if (verbose) {
+      const total = allLines.length;
+      result.all_lines = total > MAX_LINES_VERBOSE ? allLines.slice(0, MAX_LINES_VERBOSE) : allLines;
+      if (total > MAX_LINES_VERBOSE) result._capped = { original: total, returned: MAX_LINES_VERBOSE };
+    }
     return result;
   });
   return { success: true, study_count: studies.length, studies };
@@ -416,13 +429,17 @@ export async function getPineTables({ study_filter } = {}) {
       tables[tid][v.row][v.col] = v.t || '';
     }
     const tableList = Object.entries(tables).map(([tid, rows]) => {
-      const rowNums = Object.keys(rows).map(Number).sort((a, b) => a - b);
+      let rowNums = Object.keys(rows).map(Number).sort((a, b) => a - b);
+      const totalRows = rowNums.length;
+      if (rowNums.length > MAX_TABLE_ROWS) rowNums = rowNums.slice(0, MAX_TABLE_ROWS);
       const formatted = rowNums.map(rn => {
         const cols = rows[rn];
         const colNums = Object.keys(cols).map(Number).sort((a, b) => a - b);
         return colNums.map(cn => cols[cn]).filter(Boolean).join(' | ');
       }).filter(Boolean);
-      return { rows: formatted };
+      const result = { rows: formatted };
+      if (totalRows > MAX_TABLE_ROWS) result._capped = { original_rows: totalRows, returned: MAX_TABLE_ROWS };
+      return result;
     });
     return { name: s.name, tables: tableList };
   });
@@ -447,7 +464,11 @@ export async function getPineBoxes({ study_filter, verbose } = {}) {
     }
     zones.sort((a, b) => b.high - a.high);
     const result = { name: s.name, total_boxes: s.count, zones };
-    if (verbose) result.all_boxes = allBoxes;
+    if (verbose) {
+      const total = allBoxes.length;
+      result.all_boxes = total > MAX_BOXES_VERBOSE ? allBoxes.slice(0, MAX_BOXES_VERBOSE) : allBoxes;
+      if (total > MAX_BOXES_VERBOSE) result._capped = { original: total, returned: MAX_BOXES_VERBOSE };
+    }
     return result;
   });
   return { success: true, study_count: studies.length, studies };
