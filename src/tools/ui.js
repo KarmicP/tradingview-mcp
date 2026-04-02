@@ -85,9 +85,11 @@ export function registerUiTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('ui_evaluate', 'Execute JavaScript code in the TradingView page context for advanced automation', {
-    expression: z.string().describe('JavaScript expression to evaluate in the page context. Wrap in IIFE for complex logic.'),
+  server.tool('ui_evaluate', 'Execute JavaScript code in the TradingView page context for advanced automation. WARNING: This tool executes arbitrary code — only use expressions you fully understand.', {
+    expression: z.string().max(10000, 'Expression too large (max 10KB)').describe('JavaScript expression to evaluate in the page context. Wrap in IIFE for complex logic.'),
   }, async ({ expression }) => {
+    // Log all ui_evaluate calls to stderr for audit trail
+    process.stderr.write(`[mcp-audit] ui_evaluate called (${expression.length} chars)\n`);
     try { return jsonResult(await core.uiEvaluate({ expression })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });

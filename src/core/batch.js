@@ -1,7 +1,7 @@
 /**
  * Core batch execution logic.
  */
-import { evaluate, evaluateAsync, getClient, getChartApi, getChartCollection } from '../connection.js';
+import { evaluate, evaluateAsync, getClient, getChartApi, getChartCollection, safeString, clampCount } from '../connection.js';
 import { waitForChartReady } from '../wait.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -23,12 +23,12 @@ export async function batchRun({ symbols, timeframes, action, delay_ms, ohlcv_co
     for (const tf of tfs) {
       const combo = { symbol, timeframe: tf };
       try {
-        if (colPath) await evaluate(`${colPath}.setSymbol('${symbol}')`);
-        else if (apiPath) await evaluate(`${apiPath}.setSymbol('${symbol}')`);
+        if (colPath) await evaluate(`${colPath}.setSymbol(${safeString(symbol)})`);
+        else if (apiPath) await evaluate(`${apiPath}.setSymbol(${safeString(symbol)})`);
 
         if (tf) {
-          if (colPath) await evaluate(`${colPath}.setResolution('${tf}')`);
-          else if (apiPath) await evaluate(`${apiPath}.setResolution('${tf}')`);
+          if (colPath) await evaluate(`${colPath}.setResolution(${safeString(tf)})`);
+          else if (apiPath) await evaluate(`${apiPath}.setResolution(${safeString(tf)})`);
         }
 
         await waitForChartReady(symbol);
@@ -45,7 +45,7 @@ export async function batchRun({ symbols, timeframes, action, delay_ms, ohlcv_co
           writeFileSync(filePath, Buffer.from(data, 'base64'));
           actionResult = { file_path: filePath };
         } else if (action === 'get_ohlcv' && apiPath) {
-          const limit = Math.min(ohlcv_count || 100, 500);
+          const limit = clampCount(ohlcv_count, 100, 500);
           actionResult = await evaluateAsync(`
             new Promise(function(resolve, reject) {
               ${apiPath}.exportData({ includeTime: true, includeSeries: true, includeStudies: false })
