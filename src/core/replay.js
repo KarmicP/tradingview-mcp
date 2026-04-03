@@ -1,7 +1,7 @@
 /**
  * Core replay mode logic.
  */
-import { evaluate, getReplayApi } from '../connection.js';
+import { evaluate, getReplayApi, safeString } from '../connection.js';
 
 const VALID_AUTOPLAY_DELAYS = [100, 143, 200, 300, 1000, 2000, 3000, 5000, 10000];
 
@@ -17,7 +17,7 @@ export async function start({ date } = {}) {
   await evaluate(`${rp}.showReplayToolbar()`);
   await new Promise(r => setTimeout(r, 500));
 
-  if (date) await evaluate(`${rp}.selectDate(new Date('${date}'))`);
+  if (date) await evaluate(`${rp}.selectDate(new Date(${safeString(date)}))`);
   else await evaluate(`${rp}.selectFirstAvailableDate()`);
   await new Promise(r => setTimeout(r, 1000));
 
