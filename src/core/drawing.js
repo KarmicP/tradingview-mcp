@@ -1,7 +1,7 @@
 /**
  * Core drawing logic.
  */
-import { evaluate, getChartApi, safeString } from '../connection.js';
+import { evaluate, getChartApi, safeString, requireFinite } from '../connection.js';
 
 export async function drawShape({ shape, point, point2, overrides: overridesRaw, text }) {
   const overrides = overridesRaw ? (typeof overridesRaw === 'string' ? JSON.parse(overridesRaw) : overridesRaw) : {};
@@ -9,19 +9,25 @@ export async function drawShape({ shape, point, point2, overrides: overridesRaw,
   const overridesStr = JSON.stringify(overrides || {});
   const textStr = text ? JSON.stringify(text) : '""';
 
+  // Validate coordinates — NaN/Infinity would corrupt drawings persisted to cloud layout
+  const p1time = requireFinite(point.time, 'point.time');
+  const p1price = requireFinite(point.price, 'point.price');
+
   const before = await evaluate(`${apiPath}.getAllShapes().map(function(s) { return s.id; })`);
 
   if (point2) {
+    const p2time = requireFinite(point2.time, 'point2.time');
+    const p2price = requireFinite(point2.price, 'point2.price');
     await evaluate(`
       ${apiPath}.createMultipointShape(
-        [{ time: ${point.time}, price: ${point.price} }, { time: ${point2.time}, price: ${point2.price} }],
+        [{ time: ${p1time}, price: ${p1price} }, { time: ${p2time}, price: ${p2price} }],
         { shape: ${safeString(shape)}, overrides: ${overridesStr}, text: ${textStr} }
       )
     `);
   } else {
     await evaluate(`
       ${apiPath}.createShape(
-        { time: ${point.time}, price: ${point.price} },
+        { time: ${p1time}, price: ${p1price} },
         { shape: ${safeString(shape)}, overrides: ${overridesStr}, text: ${textStr} }
       )
     `);

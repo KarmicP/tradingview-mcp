@@ -46,6 +46,16 @@ export function clampCount(value, defaultVal, max) {
   return Math.min(n, max);
 }
 
+/**
+ * Validate that a value is a finite number. Throws if NaN, Infinity, or non-numeric.
+ * Prevents corrupt values from reaching TradingView APIs that persist to cloud state.
+ */
+export function requireFinite(value, name) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) throw new Error(`${name} must be a finite number, got: ${value}`);
+  return n;
+}
+
 export async function getClient() {
   if (client) {
     try {

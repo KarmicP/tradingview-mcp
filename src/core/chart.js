@@ -1,7 +1,7 @@
 /**
  * Core chart control logic.
  */
-import { evaluate, evaluateAsync, safeString } from '../connection.js';
+import { evaluate, evaluateAsync, safeString, requireFinite } from '../connection.js';
 import { waitForChartReady } from '../wait.js';
 
 const CHART_API = 'window.TradingViewApi._activeChartWidgetWV.value()';
@@ -60,7 +60,7 @@ export async function setType({ chart_type }) {
     'HeikinAshi': 8, 'HollowCandles': 9,
   };
   const typeNum = typeMap[chart_type] ?? Number(chart_type);
-  if (isNaN(typeNum)) {
+  if (isNaN(typeNum) || typeNum < 0 || typeNum > 9 || !Number.isInteger(typeNum)) {
     throw new Error(`Unknown chart type: ${chart_type}. Use a name (Candles, Line, etc.) or number (0-9).`);
   }
   await evaluate(`
@@ -113,6 +113,8 @@ export async function getVisibleRange() {
 }
 
 export async function setVisibleRange({ from, to }) {
+  const f = requireFinite(from, 'from');
+  const t = requireFinite(to, 'to');
   await evaluate(`
     (function() {
       var chart = ${CHART_API};
@@ -124,8 +126,8 @@ export async function setVisibleRange({ from, to }) {
       var fromIdx = startIdx, toIdx = endIdx;
       for (var i = startIdx; i <= endIdx; i++) {
         var v = bars.valueAt(i);
-        if (v && v[0] >= ${from} && fromIdx === startIdx) fromIdx = i;
-        if (v && v[0] <= ${to}) toIdx = i;
+        if (v && v[0] >= ${f} && fromIdx === startIdx) fromIdx = i;
+        if (v && v[0] <= ${t}) toIdx = i;
       }
       ts.zoomToBarsRange(fromIdx, toIdx);
     })()
