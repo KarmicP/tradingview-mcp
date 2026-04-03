@@ -4,19 +4,17 @@ import * as chartCore from '../../core/chart.js';
 import * as tabCore from '../../core/tab.js';
 
 /**
- * Switch to a tab matching a symbol, title substring, or chart ID.
+ * Switch to a tab matching a symbol name.
  * Returns the matched tab or null if no match / only one tab.
+ * For layout switching, use: tv layout switch "My Layout"
  */
-async function switchToChart(name) {
-  if (!name) return null;
+async function switchToChart(symbol) {
+  if (!symbol) return null;
   const { tabs } = await tabCore.list();
   if (tabs.length <= 1) return null;
-  const q = name.toLowerCase();
-  const match = tabs.find(t =>
-    t.title.toLowerCase().includes(q) ||
-    (t.chart_id && t.chart_id.toLowerCase() === q)
-  );
-  if (!match) throw new Error(`No tab matching "${name}". Open tabs: ${tabs.map(t => t.title).join(', ')}`);
+  const q = symbol.toLowerCase();
+  const match = tabs.find(t => t.title.toLowerCase().includes(q));
+  if (!match) throw new Error(`No tab matching "${symbol}". Open tabs: ${tabs.map(t => t.title).join(', ')}`);
   await tabCore.switchTab({ index: match.index });
   await new Promise(r => setTimeout(r, 500));
   return match;
@@ -138,9 +136,9 @@ register('replay', {
   description: 'Replay mode controls',
   subcommands: new Map([
     ['start', {
-      description: 'Start replay: tv replay start -d 20250301 -h 0930 -tf 5 -s 3x -i 1s [-c ES]',
+      description: 'Start replay: tv replay start -d 20250301 -h 0930 -tf 5 -s 3x -i 1s [-c ES]. Tip: switch layout first with tv layout switch "My Layout"',
       options: {
-        chart: { type: 'string', short: 'c', description: 'Switch to tab by symbol (ES, AAPL), title, or chart ID from URL (e.g., AbCdEf12 from /chart/AbCdEf12/)' },
+        chart: { type: 'string', short: 'c', description: 'Switch to tab matching symbol (ES, AAPL, NQ)' },
         date: { type: 'string', short: 'd', description: 'Date: 20250301, 3/1, "mar 1", yesterday, -7d' },
         hour: { type: 'string', short: 'h', description: 'Time: 0930, 9:30, 2pm, 14' },
         tf: { type: 'string', description: 'Chart timeframe (5, 15, 60, D)' },
