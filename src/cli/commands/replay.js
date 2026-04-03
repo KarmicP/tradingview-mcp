@@ -157,15 +157,23 @@ register('replay', {
         const date = parseFlexDate(dateStr);
         const results = {};
 
-        // Load saved layout if requested (does this first — changes the whole chart)
+        // Load saved layout if requested — falls back to current chart if not found
         if (opts.layout) {
-          results.layout = await uiCore.layoutSwitch({ name: opts.layout });
-          await new Promise(r => setTimeout(r, 1000));
+          try {
+            results.layout = await uiCore.layoutSwitch({ name: opts.layout });
+            await new Promise(r => setTimeout(r, 1000));
+          } catch (e) {
+            results.layout_warning = `Layout "${opts.layout}" not found, using current chart. ${e.message}`;
+          }
         }
 
-        // Switch to matching tab if requested
+        // Switch to matching tab if requested — falls back to current tab if not found
         if (opts.chart) {
-          results.tab = await switchToChart(opts.chart);
+          try {
+            results.tab = await switchToChart(opts.chart);
+          } catch (e) {
+            results.tab_warning = `Tab "${opts.chart}" not found, using current tab. ${e.message}`;
+          }
         }
 
         // Set timeframe first if requested
