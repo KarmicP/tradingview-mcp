@@ -137,12 +137,12 @@ register('replay', {
   description: 'Replay mode controls',
   subcommands: new Map([
     ['start', {
-      description: 'Start replay: tv replay start -l my_ES_chart -d 20250301 -h 0930 -tf 5 -s 3x -i 1s',
+      description: 'Start replay: tv replay start -l my_ES_chart -d 20250301 -H 0930 -tf 5 -s 3x -i 1s',
       options: {
         layout: { type: 'string', short: 'l', description: 'Load a saved layout by name before starting' },
         chart: { type: 'string', short: 'c', description: 'Switch to tab matching symbol (ES, AAPL, NQ)' },
         date: { type: 'string', short: 'd', description: 'Date: 20250301, 3/1, "mar 1", yesterday, -7d' },
-        hour: { type: 'string', description: 'Time: 0930, 9:30, 2pm, 14' },
+        hour: { type: 'string', short: 'H', description: 'Time: 0930, 9:30, 2pm, 14' },
         tf: { type: 'string', description: 'Chart timeframe (5, 15, 60, D)' },
         speed: { type: 'string', short: 's', description: 'Speed: 1x, 3x, 5x, 7x, 10x (or raw ms)' },
         interval: { type: 'string', short: 'i', description: 'Update interval: 1s, 1t, 1, 5, chart/auto' },
