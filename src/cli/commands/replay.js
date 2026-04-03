@@ -142,19 +142,20 @@ register('replay', {
         layout: { type: 'string', short: 'l', description: 'Load a saved layout by name before starting' },
         chart: { type: 'string', short: 'c', description: 'Switch to tab matching symbol (ES, AAPL, NQ)' },
         date: { type: 'string', short: 'd', description: 'Date: 20250301, 3/1, "mar 1", yesterday, -7d' },
-        hour: { type: 'string', short: 'h', description: 'Time: 0930, 9:30, 2pm, 14' },
+        hour: { type: 'string', description: 'Time: 0930, 9:30, 2pm, 14' },
         tf: { type: 'string', description: 'Chart timeframe (5, 15, 60, D)' },
         speed: { type: 'string', short: 's', description: 'Speed: 1x, 3x, 5x, 7x, 10x (or raw ms)' },
         interval: { type: 'string', short: 'i', description: 'Update interval: 1s, 1t, 1, 5, chart/auto' },
       },
       handler: async (opts, positionals) => {
-        // Combine -d and -h, or pick up positionals
-        let dateStr = opts.date || positionals[0];
-        const hourStr = opts.hour || positionals[opts.date ? 0 : 1];
-        if (dateStr && hourStr && parseTime(hourStr)) {
-          dateStr = dateStr + ' ' + hourStr;
+        // Parse date and hour separately, then combine
+        const rawDate = opts.date || positionals[0];
+        const rawHour = opts.hour || positionals[opts.date ? 0 : 1];
+        let date = parseFlexDate(rawDate);
+        if (date && rawHour) {
+          const time = parseTime(rawHour);
+          if (time) date = `${date}T${time}`;
         }
-        const date = parseFlexDate(dateStr);
         const results = {};
 
         // Load saved layout if requested — falls back to current chart if not found
