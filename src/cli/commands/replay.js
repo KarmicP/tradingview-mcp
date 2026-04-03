@@ -140,7 +140,7 @@ register('replay', {
     ['start', {
       description: 'Start replay: tv replay start -d 20250301 -h 0930 -tf 5 -s 3x -i 1s [-c ES]',
       options: {
-        chart: { type: 'string', short: 'c', description: 'Switch to tab matching symbol/name (e.g., ES, AAPL, "My Layout")' },
+        chart: { type: 'string', short: 'c', description: 'Switch to tab by symbol (ES, AAPL), title, or chart ID from URL (e.g., AbCdEf12 from /chart/AbCdEf12/)' },
         date: { type: 'string', short: 'd', description: 'Date: 20250301, 3/1, "mar 1", yesterday, -7d' },
         hour: { type: 'string', short: 'h', description: 'Time: 0930, 9:30, 2pm, 14' },
         tf: { type: 'string', description: 'Chart timeframe (5, 15, 60, D)' },
