@@ -146,7 +146,7 @@ register('replay', {
         chart: { type: 'string', short: 'c', description: 'Switch to tab matching symbol (ES, AAPL, NQ)' },
         date: { type: 'string', short: 'd', description: 'Date: 20250301, 3/1, "mar 1", yesterday, -7d' },
         hour: { type: 'string', short: 'H', description: 'Time: 0930, 9:30, 2pm, 14' },
-        tf: { type: 'string', description: 'Chart timeframe (5, 15, 60, D)' },
+        tf: { type: 'string', description: 'Chart timeframe: 1m, 5m, 15m, 1h, 4h, D, W (or raw: 1, 5, 60)' },
         speed: { type: 'string', short: 's', description: 'Speed: 1x, 3x, 5x, 7x, 10x (or raw ms)' },
         interval: { type: 'string', short: 'i', description: 'Update interval: 1s, 1t, 1, 5, chart/auto' },
       },
@@ -180,9 +180,10 @@ register('replay', {
           }
         }
 
-        // Set timeframe first if requested
+        // Set timeframe first if requested — accept friendly suffixes (1m, 5m, 1h, 1d)
         if (opts.tf) {
-          results.timeframe = await chartCore.setTimeframe({ timeframe: opts.tf });
+          const tf = opts.tf.replace(/^(\d+)m$/i, '$1').replace(/^(\d+)h$/i, (_,n) => String(n*60)).replace(/^1?d$/i, 'D').replace(/^1?w$/i, 'W').replace(/^1?M$/, 'M');
+          results.timeframe = await chartCore.setTimeframe({ timeframe: tf });
           await new Promise(r => setTimeout(r, 500));
         }
 
