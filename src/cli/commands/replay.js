@@ -35,6 +35,9 @@ function parseFlexDate(input) {
   // Compact date "20250301" → "2025-03-01"
   if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
 
+  // Short compact date "260402" → "2026-04-02" (YYMMDD)
+  if (/^\d{6}$/.test(s)) return `20${s.slice(0, 2)}-${s.slice(2, 4)}-${s.slice(4, 6)}`;
+
   // "today", "yesterday"
   const now = new Date();
   if (/^today$/i.test(s)) return now.toISOString().slice(0, 10);
