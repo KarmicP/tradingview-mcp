@@ -2,6 +2,7 @@ import { register } from '../router.js';
 import * as core from '../../core/replay.js';
 import * as chartCore from '../../core/chart.js';
 import * as tabCore from '../../core/tab.js';
+import * as uiCore from '../../core/ui.js';
 
 /**
  * Switch to a tab matching a symbol name.
@@ -136,8 +137,9 @@ register('replay', {
   description: 'Replay mode controls',
   subcommands: new Map([
     ['start', {
-      description: 'Start replay: tv replay start -d 20250301 -h 0930 -tf 5 -s 3x -i 1s [-c ES]. Tip: switch layout first with tv layout switch "My Layout"',
+      description: 'Start replay: tv replay start -l my_ES_chart -d 20250301 -h 0930 -tf 5 -s 3x -i 1s',
       options: {
+        layout: { type: 'string', short: 'l', description: 'Load a saved layout by name before starting' },
         chart: { type: 'string', short: 'c', description: 'Switch to tab matching symbol (ES, AAPL, NQ)' },
         date: { type: 'string', short: 'd', description: 'Date: 20250301, 3/1, "mar 1", yesterday, -7d' },
         hour: { type: 'string', short: 'h', description: 'Time: 0930, 9:30, 2pm, 14' },
@@ -154,6 +156,12 @@ register('replay', {
         }
         const date = parseFlexDate(dateStr);
         const results = {};
+
+        // Load saved layout if requested (does this first — changes the whole chart)
+        if (opts.layout) {
+          results.layout = await uiCore.layoutSwitch({ name: opts.layout });
+          await new Promise(r => setTimeout(r, 1000));
+        }
 
         // Switch to matching tab if requested
         if (opts.chart) {
