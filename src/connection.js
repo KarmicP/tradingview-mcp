@@ -31,7 +31,7 @@ export { KNOWN_PATHS };
 /**
  * Sanitize a string for safe interpolation into JavaScript code evaluated via CDP.
  * Uses JSON.stringify to produce a properly escaped JS string literal (with quotes).
- * This prevents injection via backticks, template literals, quotes, or control chars.
+ * Prevents injection via quotes, backticks, template literals, or control chars.
  */
 export function safeString(str) {
   return JSON.stringify(String(str));

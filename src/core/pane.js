@@ -136,6 +136,7 @@ export async function focus({ index }) {
  */
 export async function setSymbol({ index, symbol }) {
   const idx = Number(index);
+
   // Focus the target pane first
   await focus({ index: idx });
   await new Promise(r => setTimeout(r, 300));

@@ -1,9 +1,9 @@
 /**
  * Core replay mode logic.
  */
-import { evaluate, getReplayApi, getReplayUIController, safeString } from '../connection.js';
+import { evaluate as _evaluate, getReplayApi as _getReplayApi, getReplayUIController, safeString } from '../connection.js';
 
-const VALID_AUTOPLAY_DELAYS = [100, 143, 200, 300, 1000, 2000, 3000, 5000, 10000];
+export const VALID_AUTOPLAY_DELAYS = [100, 143, 200, 300, 1000, 2000, 3000, 5000, 10000];
 
 // Replay update interval labels for human-readable output.
 // Valid resolutions are dynamic (depend on chart timeframe) so we query TradingView at runtime.
@@ -19,17 +19,32 @@ function wv(path) {
   return `(function(){ var v = ${path}; return (v && typeof v === 'object' && typeof v.value === 'function') ? v.value() : v; })()`;
 }
 
-export async function start({ date } = {}) {
+function _resolve(deps) {
+  return {
+    evaluate: deps?.evaluate || _evaluate,
+    getReplayApi: deps?.getReplayApi || _getReplayApi,
+  };
+}
+
+export async function start({ date, _deps } = {}) {
+  const { evaluate, getReplayApi } = _resolve(_deps);
   const rp = await getReplayApi();
   const available = await evaluate(wv(`${rp}.isReplayAvailable()`));
   if (!available) throw new Error('Replay is not available for the current symbol/timeframe');
 
   await evaluate(`${rp}.showReplayToolbar()`);
-  await new Promise(r => setTimeout(r, 500));
 
-  if (date) await evaluate(`${rp}.selectDate(new Date(${safeString(date)}))`);
-  else await evaluate(`${rp}.selectFirstAvailableDate()`);
-  await new Promise(r => setTimeout(r, 1000));
+  // selectDate() is async — it calls enableReplayMode() then _onPointSelected()
+  // which initializes the server-side replay session. Must be awaited inside the
+  // page context, otherwise the promise is fire-and-forget and replay state says
+  // "started" but stepping doesn't work (issue #26).
+  if (date) {
+    const ts = new Date(date).getTime();
+    if (isNaN(ts)) throw new Error(`Invalid date: "${date}". Use YYYY-MM-DD format.`);
+    await evaluate(`${rp}.selectDate(${ts}).then(function() { return 'ok'; })`);
+  } else {
+    await evaluate(`${rp}.selectFirstAvailableDate()`);
+  }
 
   // Check for "Data point unavailable" toast which corrupts the chart
   const toast = await evaluate(`
@@ -49,25 +64,50 @@ export async function start({ date } = {}) {
     throw new Error(`Replay date unavailable: "${toast}". The requested date has no data for this timeframe. Try a more recent date or switch to a higher timeframe (e.g., Daily).`);
   }
 
-  const started = await evaluate(wv(`${rp}.isReplayStarted()`));
-  const currentDate = await evaluate(wv(`${rp}.currentDate()`));
-  return { success: true, replay_started: !!started, date: date || '(first available)', current_date: currentDate };
+  // Poll until replay is fully initialized: isReplayStarted AND currentDate is set.
+  // selectDate()'s promise resolves before the data series is ready, so we need
+  // to wait for currentDate to become non-null before stepping will work.
+  let started = false;
+  let currentDate = null;
+  for (let i = 0; i < 30; i++) {
+    started = await evaluate(wv(`${rp}.isReplayStarted()`));
+    currentDate = await evaluate(wv(`${rp}.currentDate()`));
+    if (started && currentDate !== null) break;
+    await new Promise(r => setTimeout(r, 250));
+  }
+
+  if (!started) {
+    try { await evaluate(`${rp}.stopReplay()`); } catch {}
+    throw new Error('Replay failed to start. The selected date may not have data for this timeframe. Try a more recent date or a higher timeframe (e.g., Daily).');
+  }
+
+  return { success: true, replay_started: true, date: date || '(first available)', current_date: currentDate };
 }
 
-export async function step() {
+export async function step({ _deps } = {}) {
+  const { evaluate, getReplayApi } = _resolve(_deps);
   const rp = await getReplayApi();
   const started = await evaluate(wv(`${rp}.isReplayStarted()`));
   if (!started) throw new Error('Replay is not started. Use replay_start first.');
+  const before = await evaluate(wv(`${rp}.currentDate()`));
   await evaluate(`${rp}.doStep()`);
-  const currentDate = await evaluate(wv(`${rp}.currentDate()`));
+  // doStep() is async internally — currentDate takes ~500ms to update.
+  // Poll until it changes or timeout after 3s.
+  let currentDate = before;
+  for (let i = 0; i < 12; i++) {
+    await new Promise(r => setTimeout(r, 250));
+    currentDate = await evaluate(wv(`${rp}.currentDate()`));
+    if (currentDate !== before) break;
+  }
   return { success: true, action: 'step', current_date: currentDate };
 }
 
-export async function autoplay({ speed } = {}) {
+export async function autoplay({ speed, _deps } = {}) {
   // Validate BEFORE any CDP calls — invalid values corrupt cloud account state permanently
   if (speed > 0 && !VALID_AUTOPLAY_DELAYS.includes(speed))
     throw new Error(`Invalid autoplay delay ${speed}ms. Valid values: ${VALID_AUTOPLAY_DELAYS.join(', ')}`);
 
+  const { evaluate, getReplayApi } = _resolve(_deps);
   const rp = await getReplayApi();
   const started = await evaluate(wv(`${rp}.isReplayStarted()`));
   if (!started) throw new Error('Replay is not started. Use replay_start first.');
@@ -80,7 +120,8 @@ export async function autoplay({ speed } = {}) {
   return { success: true, autoplay_active: !!isAutoplay, delay_ms: currentDelay };
 }
 
-export async function stop() {
+export async function stop({ _deps } = {}) {
+  const { evaluate, getReplayApi } = _resolve(_deps);
   const rp = await getReplayApi();
   const started = await evaluate(wv(`${rp}.isReplayStarted()`));
   if (!started) {
@@ -90,7 +131,8 @@ export async function stop() {
   return { success: true, action: 'replay_stopped' };
 }
 
-export async function trade({ action }) {
+export async function trade({ action, _deps }) {
+  const { evaluate, getReplayApi } = _resolve(_deps);
   const rp = await getReplayApi();
   const started = await evaluate(wv(`${rp}.isReplayStarted()`));
   if (!started) throw new Error('Replay is not started. Use replay_start first.');
@@ -105,7 +147,8 @@ export async function trade({ action }) {
   return { success: true, action, position, realized_pnl: pnl };
 }
 
-export async function setResolution({ interval } = {}) {
+export async function setResolution({ interval, _deps } = {}) {
+  const { evaluate, getReplayApi } = _resolve(_deps);
   // Resolve "auto" to null (TradingView's internal representation)
   const value = (!interval || interval === 'auto') ? null : interval;
 
@@ -136,7 +179,8 @@ function resolveLabel(current, auto) {
   return REPLAY_RESOLUTION_LABELS[current] || current;
 }
 
-export async function status() {
+export async function status({ _deps } = {}) {
+  const { evaluate, getReplayApi } = _resolve(_deps);
   const rp = await getReplayApi();
   const st = await evaluate(`
     (function() {

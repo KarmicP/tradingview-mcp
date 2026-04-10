@@ -13,14 +13,13 @@ const CHART_API = KNOWN_PATHS.chartApi;
 const BARS_PATH = KNOWN_PATHS.mainSeriesBars;
 
 function buildGraphicsJS(collectionName, mapKey, filter) {
-  const safeFilter = JSON.stringify(String(filter || ''));
   return `
     (function() {
       var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
       var model = chart.model();
       var sources = model.model().dataSources();
       var results = [];
-      var filter = ${safeFilter};
+      var filter = ${safeString(filter || '')};
       for (var si = 0; si < sources.length; si++) {
         var s = sources[si];
         if (!s.metaInfo) continue;
@@ -251,7 +250,7 @@ export async function getQuote({ symbol } = {}) {
   const data = await evaluate(`
     (function() {
       var api = ${CHART_API};
-      var sym = ${JSON.stringify(String(symbol || ''))};
+      var sym = ${safeString(symbol || '')};
       if (!sym) { try { sym = api.symbol(); } catch(e) {} }
       if (!sym) { try { sym = api.symbolExt().symbol; } catch(e) {} }
       var ext = {};
