@@ -36,7 +36,17 @@ function mockGetReplayApi() {
 
 function mockDeps(responses = {}, sequence) {
   const evaluate = mockEvaluate(responses, sequence);
-  return { _deps: { evaluate, getReplayApi: mockGetReplayApi() }, evaluate };
+  // getReplayUIController is injected too — the real one opens a live CDP
+  // connection whose websocket keeps the test process alive (unit tests must
+  // never touch a running TradingView).
+  return {
+    _deps: {
+      evaluate,
+      getReplayApi: mockGetReplayApi(),
+      getReplayUIController: async () => 'window.__replayUI',
+    },
+    evaluate,
+  };
 }
 
 // ── start() ──────────────────────────────────────────────────────────────
@@ -255,36 +265,63 @@ describe('autoplay() — delay validation', () => {
 });
 
 describe('replay setResolution — interval validation', () => {
-  // Valid resolutions are dynamic (depend on chart timeframe), so validation
-  // happens at runtime by querying TradingView. Without a live connection,
-  // we can only verify that "auto"/omitted resolve correctly before the CDP call.
+  // Valid resolutions are dynamic (depend on chart timeframe), so setResolution
+  // queries TradingView for the allowed list and validates BEFORE calling
+  // changeReplayResolution (invalid values corrupt cloud account state).
+  const resolutionMocks = {
+    'isReplayStarted': true,
+    '_allReplayResolutions': ['1', '5', '15'],
+    '_currentReplayResolution': '5',
+    '_autoReplayResolution': '1',
+  };
 
   it('accepts "auto" (resolves to null internally, no validation error)', async () => {
-    try {
-      await setResolution({ interval: 'auto' });
-    } catch (err) {
-      // Connection errors are expected (no TradingView running).
-      // Validation errors should NOT happen for "auto".
-      assert.ok(
-        !err.message.includes('Invalid replay resolution'),
-        `"auto" should be accepted: ${err.message}`,
-      );
-    }
+    const { _deps, evaluate } = mockDeps({
+      ...resolutionMocks,
+      '_currentReplayResolution': null,
+    });
+    const result = await setResolution({ interval: 'auto', _deps });
+    assert.equal(result.success, true);
+    const changeCall = evaluate.calls.find(c => c.includes('changeReplayResolution'));
+    assert.ok(changeCall.includes('changeReplayResolution(null)'), 'auto maps to null');
   });
 
   it('accepts omitted interval (defaults to auto)', async () => {
-    try {
-      await setResolution({});
-    } catch (err) {
-      assert.ok(
-        !err.message.includes('Invalid replay resolution'),
-        `omitted interval should default to auto: ${err.message}`,
-      );
-    }
+    const { _deps, evaluate } = mockDeps({
+      ...resolutionMocks,
+      '_currentReplayResolution': null,
+    });
+    const result = await setResolution({ _deps });
+    assert.equal(result.success, true);
+    const changeCall = evaluate.calls.find(c => c.includes('changeReplayResolution'));
+    assert.ok(changeCall.includes('changeReplayResolution(null)'), 'omitted maps to null');
   });
 
-  it('setResolution is exported and callable', () => {
-    assert.equal(typeof setResolution, 'function');
+  it('sets a valid resolution from the available list', async () => {
+    const { _deps, evaluate } = mockDeps(resolutionMocks);
+    const result = await setResolution({ interval: '5', _deps });
+    assert.equal(result.success, true);
+    assert.equal(result.resolution, '5');
+    const changeCall = evaluate.calls.find(c => c.includes('changeReplayResolution'));
+    assert.ok(changeCall.includes('"5"'), 'passes sanitized resolution');
+  });
+
+  it('rejects a resolution not in the available list BEFORE any change call', async () => {
+    const { _deps, evaluate } = mockDeps(resolutionMocks);
+    await assert.rejects(
+      () => setResolution({ interval: '1T', _deps }),
+      (err) => err.message.includes('Invalid replay resolution'),
+    );
+    const changeCall = evaluate.calls.find(c => c.includes('changeReplayResolution'));
+    assert.equal(changeCall, undefined, 'changeReplayResolution never called for invalid value');
+  });
+
+  it('throws when replay not started', async () => {
+    const { _deps } = mockDeps({ 'isReplayStarted': false });
+    await assert.rejects(
+      () => setResolution({ interval: '5', _deps }),
+      (err) => err.message.includes('not started'),
+    );
   });
 });
 
@@ -378,7 +415,7 @@ describe('status()', () => {
       return undefined;
     };
     evaluate.calls = [];
-    const result = await status({ _deps: { evaluate, getReplayApi: mockGetReplayApi() } });
+    const result = await status({ _deps: { evaluate, getReplayApi: mockGetReplayApi(), getReplayUIController: async () => 'window.__replayUI' } });
     assert.equal(result.success, true);
     assert.equal(result.is_replay_started, true);
     assert.equal(result.current_date, 1700000000);

@@ -7,3 +7,4 @@ discovery-log.json
 .claude/*
 !.claude/MEMORY.md
 doc/
+rules.json

@@ -1,7 +1,7 @@
 /**
  * Core replay mode logic.
  */
-import { evaluate as _evaluate, getReplayApi as _getReplayApi, getReplayUIController, safeString } from '../connection.js';
+import { evaluate as _evaluate, getReplayApi as _getReplayApi, getReplayUIController as _getReplayUIController, safeString } from '../connection.js';
 
 export const VALID_AUTOPLAY_DELAYS = [100, 143, 200, 300, 1000, 2000, 3000, 5000, 10000];
 
@@ -23,6 +23,7 @@ function _resolve(deps) {
   return {
     evaluate: deps?.evaluate || _evaluate,
     getReplayApi: deps?.getReplayApi || _getReplayApi,
+    getReplayUIController: deps?.getReplayUIController || _getReplayUIController,
   };
 }
 
@@ -148,7 +149,7 @@ export async function trade({ action, _deps }) {
 }
 
 export async function setResolution({ interval, _deps } = {}) {
-  const { evaluate, getReplayApi } = _resolve(_deps);
+  const { evaluate, getReplayApi, getReplayUIController } = _resolve(_deps);
   // Resolve "auto" to null (TradingView's internal representation)
   const value = (!interval || interval === 'auto') ? null : interval;
 
@@ -180,7 +181,7 @@ function resolveLabel(current, auto) {
 }
 
 export async function status({ _deps } = {}) {
-  const { evaluate, getReplayApi } = _resolve(_deps);
+  const { evaluate, getReplayApi, getReplayUIController } = _resolve(_deps);
   const rp = await getReplayApi();
   const st = await evaluate(`
     (function() {
